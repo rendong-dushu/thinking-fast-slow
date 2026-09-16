@@ -3711,7 +3711,20 @@ body[data-theme="dark"] .eyebrow,body[data-theme="brand-dark"] .eyebrow{color:va
     const zb = vp.querySelector('.mm-zoom');
     let stt = { x: 0, y: 0, k: 1 };
     function apply(){ const r = vp.getBoundingClientRect(); if (!r.width || !r.height) return; svgEl.setAttribute('width', r.width); svgEl.setAttribute('height', r.height); svgEl.setAttribute('viewBox', (-stt.x / stt.k).toFixed(2) + ' ' + (-stt.y / stt.k).toFixed(2) + ' ' + (r.width / stt.k).toFixed(2) + ' ' + (r.height / stt.k).toFixed(2)); if (zb) zb.textContent = Math.round(stt.k * 100) + '%'; }
-    function fit(pad){ pad = pad || 28; const r = vp.getBoundingClientRect(); if (!r.width || !r.height) return; const k = Math.min((r.width - pad * 2) / W, (r.height - pad * 2) / H); stt.k = Math.min(k, 1.2); stt.x = (r.width - W * stt.k) / 2; stt.y = (r.height - H * stt.k) / 2; apply(); }
+    function fit(pad){
+      pad = (pad === undefined) ? 20 : pad;
+      // 容器高度按内容比例自适应(上限 1100px):竖高的双层节点树不再被 fit 压成缩略图(文字 <8px 不可读)
+      if (!wrap.classList.contains('mm-fullscreen')) {
+        const w0 = vp.getBoundingClientRect().width;
+        if (w0) {
+          const want = Math.min(Math.max(Math.round(w0 * (H / W) + pad * 2), 420), 1100);
+          if (Math.abs(want - vp.clientHeight) > 4) vp.style.height = want + 'px';
+        }
+      }
+      const r = vp.getBoundingClientRect(); if (!r.width || !r.height) return;
+      const k = Math.min((r.width - pad * 2) / W, (r.height - pad * 2) / H);
+      stt.k = Math.min(k, 1.2); stt.x = (r.width - W * stt.k) / 2; stt.y = (r.height - H * stt.k) / 2; apply();
+    }
     function zoomAt(cx, cy, f){ const r = vp.getBoundingClientRect(); const px = cx - r.left, py = cy - r.top, nk = Math.min(Math.max(stt.k * f, 0.15), 6); stt.x = px - (px - stt.x) * (nk / stt.k); stt.y = py - (py - stt.y) * (nk / stt.k); stt.k = nk; apply(); }
     vp.addEventListener('wheel', e => { e.preventDefault(); let d = e.deltaY; if (e.deltaMode === 1) d *= 16; else if (e.deltaMode === 2) d *= 100; d = Math.max(-100, Math.min(100, d)); zoomAt(e.clientX, e.clientY, Math.exp(-d * 0.001)); }, { passive: false });
     const pts = new Map(); let dragMoved = false, downPos = null, pinchStart = null, captured = false;
@@ -3754,9 +3767,9 @@ body[data-theme="dark"] .eyebrow,body[data-theme="brand-dark"] .eyebrow{color:va
       if (on) {
         fsHome = wrap.parentNode; fsSlot = document.createComment('mm-fs-slot');
         fsHome.insertBefore(fsSlot, wrap); document.body.appendChild(wrap);
-        wrap.classList.add('mm-fullscreen'); document.body.style.overflow = 'hidden';
+        wrap.classList.add('mm-fullscreen'); document.body.style.overflow = 'hidden'; vp.style.height = '';
       } else {
-        wrap.classList.remove('mm-fullscreen'); document.body.style.overflow = '';
+        wrap.classList.remove('mm-fullscreen'); document.body.style.overflow = ''; vp.style.height = '';
         if (fsSlot && fsHome) { fsHome.insertBefore(wrap, fsSlot); fsSlot.remove(); fsSlot = null; }
       }
       if (fsBtn) fsBtn.textContent = on ? '⤡ 退出' : '⤢ 全屏';
