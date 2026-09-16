@@ -3634,9 +3634,27 @@ body[data-theme="dark"] .eyebrow,body[data-theme="brand-dark"] .eyebrow{color:va
     for (let d = 0; d <= maxDepth; d++) colW[d] = Math.max(...byDepth[d].map(n => n.w));
     colX[0] = 0; for (let d = 1; d <= maxDepth; d++) colX[d] = colX[d - 1] + colW[d - 1] + HGAP;
     // 竖向 tidy 布局:后序 y 游标(变高不重叠),父居子中点
-    const VGAP = 16; let cursor = 0;
-    (function place(n){ n.x = colX[n.depth]; if (n.children.length === 0) { n.top = cursor; n.cy = cursor + n.h / 2; cursor += n.h + VGAP; } else { n.children.forEach(place); const f = n.children[0], l = n.children[n.children.length - 1]; n.cy = (f.cy + l.cy) / 2; n.top = n.cy - n.h / 2; } })(rootNode);
-    // 画布边界
+        const VGAP = 30;
+    // 竖向布局:slot 高 = max(自身块高, 子树高) -> 兄弟永不重叠;父节点在 slot 内居中,子树整体居中
+    (function measureSub(n){
+      if (!n.children.length) { n.subH = n.h; return n.subH; }
+      let total = 0;
+      n.children.forEach(c => { total += measureSub(c); });
+      total += VGAP * (n.children.length - 1);
+      n.subH = Math.max(n.h, total);
+      return n.subH;
+    })(rootNode);
+    (function assign(n, top){
+      n.x = colX[n.depth];
+      n.top = top + (n.subH - n.h) / 2;
+      n.cy = n.top + n.h / 2;
+      if (n.children.length) {
+        const total = n.children.reduce((a, c) => a + c.subH, 0) + VGAP * (n.children.length - 1);
+        let y = top + (n.subH - total) / 2;
+        n.children.forEach(c => { assign(c, y); y += c.subH + VGAP; });
+      }
+    })(rootNode, 0);
+// 画布边界
     const MARGIN = 42; let minY = Infinity, maxY = -Infinity, maxX = -Infinity;
     Object.values(byDepth).flat().forEach(n => { minY = Math.min(minY, n.top); maxY = Math.max(maxY, n.top + n.h); maxX = Math.max(maxX, n.x + n.w); });
     const W = maxX + MARGIN * 2, H = (maxY - minY) + MARGIN * 2, offY = MARGIN - minY, offX = MARGIN;
